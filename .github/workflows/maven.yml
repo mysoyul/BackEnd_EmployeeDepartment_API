@@ -34,7 +34,7 @@ jobs:
       uses: mr-smithers-excellent/docker-build-push@v6
       with:
         image: ${{secrets.DOCKER_USERNAME}}/springbootreactjs
-        tags: 0.1
+        tags: 0.2
         registry: docker.io
         dockerfile: Dockerfile
         username: ${{secrets.DOCKER_USERNAME}}
