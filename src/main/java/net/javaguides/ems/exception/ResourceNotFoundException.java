@@ -1,12 +1,21 @@
 package net.javaguides.ems.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
-@ResponseStatus(value = HttpStatus.NOT_FOUND)
+@Getter
 public class ResourceNotFoundException extends RuntimeException{
+    private final String message;
+    private final HttpStatus httpStatus;
+
 
     public ResourceNotFoundException(String message){
-        super(message);
+        //417
+        this(message, HttpStatus.EXPECTATION_FAILED);
+    }
+
+    public ResourceNotFoundException(String message, HttpStatus httpStatus) {
+        this.message = message;
+        this.httpStatus = httpStatus;
     }
 }
