@@ -11,7 +11,7 @@ import org.springframework.web.filter.CorsFilter;
 import java.util.Arrays;
 
 @Configuration
-@Profile("local")
+@Profile("prod")
 public class CorsConfig {
     @Bean
     public FilterRegistrationBean<?> corsConfigurationSource() {
