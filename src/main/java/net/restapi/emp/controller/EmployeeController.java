@@ -31,6 +31,12 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeDto);
     }
 
+    @GetMapping("/email/{email}")
+    public ResponseEntity<EmployeeDto> getEmployeeByEmail(String email){
+        EmployeeDto employeeDto = employeeService.getEmployeeByEmail(email);
+        return ResponseEntity.ok(employeeDto);
+    }
+
     // Build Get All Employees REST API
     @GetMapping
     public ResponseEntity<List<EmployeeDto>> getAllEmployees(){
