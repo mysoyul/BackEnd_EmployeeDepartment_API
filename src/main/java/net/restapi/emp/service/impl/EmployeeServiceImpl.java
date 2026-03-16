@@ -53,6 +53,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     public EmployeeDto getEmployeeByEmail(String email) {
         return employeeRepository.findByEmail(email)
+                .map(EmployeeMapper::mapToEmployeeDto)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Employee is not exists with given email : " + email,

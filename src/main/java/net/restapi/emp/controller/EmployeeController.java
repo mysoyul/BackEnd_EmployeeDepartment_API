@@ -32,7 +32,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/email/{email}")
-    public ResponseEntity<EmployeeDto> getEmployeeByEmail(String email){
+    public ResponseEntity<EmployeeDto> getEmployeeByEmail(@PathVariable String email){
         EmployeeDto employeeDto = employeeService.getEmployeeByEmail(email);
         return ResponseEntity.ok(employeeDto);
     }
@@ -51,7 +51,7 @@ public class EmployeeController {
 
 
     // Build Update Employee REST API
-    @PutMapping("{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<EmployeeDto> updateEmployee(@PathVariable("id") Long employeeId,
                                                       @RequestBody EmployeeDto updatedEmployee){
           EmployeeDto employeeDto = employeeService.updateEmployee(employeeId, updatedEmployee);
@@ -59,7 +59,7 @@ public class EmployeeController {
     }
 
     // Build Delete Employee REST API
-    @DeleteMapping("{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteEmployee(@PathVariable("id") Long employeeId){
         employeeService.deleteEmployee(employeeId);
         return ResponseEntity.ok("Employee deleted successfully!.");
