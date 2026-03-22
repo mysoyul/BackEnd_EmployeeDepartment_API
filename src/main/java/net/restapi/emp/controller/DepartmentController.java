@@ -3,6 +3,7 @@ package net.restapi.emp.controller;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import net.restapi.emp.dto.DepartmentDto;
+import net.restapi.emp.dto.PageResponse;
 import net.restapi.emp.service.DepartmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,16 @@ public class DepartmentController {
     public ResponseEntity<List<DepartmentDto>> getAllDepartments(){
         List<DepartmentDto> departments = departmentService.getAllDepartments();
         return ResponseEntity.ok(departments);
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<DepartmentDto>> getDepartmentsPage(
+            @RequestParam(defaultValue = "0") int pageNo,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir
+    ) {
+        return ResponseEntity.ok(departmentService.getDepartmentsPage(pageNo, pageSize, sortBy, sortDir));
     }
 
     // Build Update Department REST API

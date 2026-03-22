@@ -2,11 +2,16 @@ package net.restapi.emp.service.impl;
 
 import lombok.AllArgsConstructor;
 import net.restapi.emp.dto.DepartmentDto;
+import net.restapi.emp.dto.PageResponse;
 import net.restapi.emp.entity.Department;
 import net.restapi.emp.exception.ResourceNotFoundException;
 import net.restapi.emp.mapper.DepartmentMapper;
 import net.restapi.emp.repository.DepartmentRepository;
 import net.restapi.emp.service.DepartmentService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -41,6 +46,30 @@ public class DepartmentServiceImpl implements DepartmentService {
                 .toList();
                 //.map((department) -> DepartmentMapper.mapToDepartmentDto(department))
                 //.collect(Collectors.toList());
+    }
+
+    @Override
+    public PageResponse<DepartmentDto> getDepartmentsPage(int pageNo, int pageSize, String sortBy, String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name())
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize, sort);
+        Page<Department> page = departmentRepository.findAll(pageable);
+
+        List<DepartmentDto> content = page.getContent()
+                .stream()
+                .map(DepartmentMapper::mapToDepartmentDto)
+                .toList();
+
+        return new PageResponse<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isLast()
+        );
     }
 
     @Override

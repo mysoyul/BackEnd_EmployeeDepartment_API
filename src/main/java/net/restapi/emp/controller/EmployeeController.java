@@ -3,6 +3,7 @@ package net.restapi.emp.controller;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import net.restapi.emp.dto.EmployeeDto;
+import net.restapi.emp.dto.PageResponse;
 import net.restapi.emp.service.EmployeeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +49,16 @@ public class EmployeeController {
     @GetMapping("/departments")
     public ResponseEntity<List<EmployeeDto>> getAllEmployeesDepartment() {
         return ResponseEntity.ok(employeeService.getAllEmployeesDepartment());
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<EmployeeDto>> getEmployeesPage(
+            @RequestParam(defaultValue = "0") int pageNo,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir
+    ) {
+        return ResponseEntity.ok(employeeService.getEmployeesPage(pageNo, pageSize, sortBy, sortDir));
     }
 
 
