@@ -7,6 +7,7 @@ import net.restapi.emp.dto.PageResponse;
 import net.restapi.emp.service.EmployeeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,12 +28,14 @@ public class EmployeeController {
     }
 
     // Build Get Employee REST API
+    @PreAuthorize("hasAuthority('ROLE_USER')")
     @GetMapping("{id}")
     public ResponseEntity<EmployeeDto> getEmployeeById(@PathVariable("id") Long employeeId){
         EmployeeDto employeeDto = employeeService.getEmployeeById(employeeId);
         return ResponseEntity.ok(employeeDto);
     }
 
+    @PreAuthorize("hasAuthority('ROLE_USER')")
     @GetMapping("/email/{email}")
     public ResponseEntity<EmployeeDto> getEmployeeByEmail(@PathVariable String email){
         EmployeeDto employeeDto = employeeService.getEmployeeByEmail(email);
@@ -40,7 +43,9 @@ public class EmployeeController {
     }
 
     // Build Get All Employees REST API
+
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<EmployeeDto>> getAllEmployees(){
         List<EmployeeDto> employees = employeeService.getAllEmployees();
         return ResponseEntity.ok(employees);
