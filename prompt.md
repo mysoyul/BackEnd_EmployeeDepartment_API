@@ -4,3 +4,4 @@
 * DepartmentController의 getDepartmentsPage() 와 EmployeeController의 getEmployeesPage() 메서드를 테스트하고 싶어요.
 * 서버에 추가된 페이징 기능을 React 클라이언트에 요청하여 구현하고 싶어요. 추가된 서버의 페이징 기능을 잘 설명하기 위한 내용을 paging.md에 갱신해 주세요. 
 * @net.restapi.emp.security.userinfo.UserInfo 클래스에 대한 V4_create_userinfo.sql과 V5_insert_userinfo.sql 를 작성해 주세요.
+* http://localhost:8080/login  admin@company.com / password  로 로그인하면 Invalid credentials 오류 발생됨 콘솔에 출력되는 쿼리는 Hibernate: select ui1_0.id,ui1_0.email,ui1_0.name,ui1_0.password,ui1_0.roles from user_info ui1_0 where ui1_0.email=?
