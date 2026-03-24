@@ -47,7 +47,12 @@ public class DepartmentServiceImpl implements DepartmentService {
                 //.map((department) -> DepartmentMapper.mapToDepartmentDto(department))
                 //.collect(Collectors.toList());
     }
-
+    /*
+        pageNo - 페이지 번호 (0부터 시작),
+        pageSize - 페이지당 데이터 수
+        sortBy - 정렬 기준 컬럼: `id`, `departmentName`, `departmentDescription`
+        sortDir - 정렬 방향: `asc` / `desc`
+     */
     @Override
     public PageResponse<DepartmentDto> getDepartmentsPage(int pageNo, int pageSize, String sortBy, String sortDir) {
         Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name())

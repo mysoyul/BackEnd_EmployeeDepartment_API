@@ -268,11 +268,11 @@ EmployeeServiceImpl.getEmployeesPage()
 
 ## 10. 주의사항
 
-| 항목 | 내용 |
-|---|---|
-| pageNo 시작값 | Spring Data는 **0부터 시작**. React `currentPage` 초기값을 `0`으로 설정 |
-| UI 표시 | 사용자에게는 `currentPage + 1`로 표시 (1부터 시작하는 것처럼 보이게) |
-| sortBy 컬럼명 | Entity 필드명 기준 (`firstName`, `departmentName` 등). DB 컬럼명(`first_name`)이 아님 |
-| 잘못된 sortBy | 존재하지 않는 필드명 입력 시 서버에서 `PropertyReferenceException` 발생 → 클라이언트에서 허용 컬럼 목록으로 제한 권장 |
+| 항목 | 내용                                                                                                               |
+|---|------------------------------------------------------------------------------------------------------------------|
+| pageNo 시작값 | Spring Data는 **0부터 시작**. React `currentPage` 초기값을 `0`으로 설정                                                       |
+| UI 표시 | 사용자에게는 `currentPage + 1`로 표시 (1부터 시작하는 것처럼 보이게)                                                                  |
+| sortBy 컬럼명 | Entity 필드명 기준 (`firstName`, `departmentName` 등). DB 컬럼명(`first_name`)이 아님                                        |
+| 잘못된 sortBy | 존재하지 않는 필드명 입력 시 서버에서 `PropertyReferenceException` 발생 → 클라이언트에서 허용 컬럼 목록으로 제한 권장                                 |
 | LAZY 로딩 | `GET /api/employees/page` 응답의 `departmentDto`는 항상 `null`. 부서 정보가 필요하면 `GET /api/employees/departments`(전체 목록) 사용 |
-| 정렬 변경 시 | 정렬 기준/방향이 바뀌면 반드시 `currentPage`를 `0`으로 초기화해야 의도한 결과가 나옴 |
+| 정렬 변경 시 | 정렬 기준/방향이 바뀌면 반드시 `currentPage`를 `0`으로 초기화 해야 의도한 결과가 나옴                                                         |
