@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.Customizer;
 
 /**
  * Spring Security 전역 보안 설정 클래스
@@ -59,6 +60,10 @@ public class SecurityConfig {
         return http
                 // REST API는 CSRF 토큰이 불필요 (쿠키/세션 미사용)
                 .csrf(csrf -> csrf.disable())
+                // CORS 활성화: CorsConfigurationSource 빈(prod) 또는 MVC CORS 설정(local)을 자동 참조
+                // Spring Security 필터 체인 내에서 preflight(OPTIONS) 요청을 처리하므로
+                // FilterRegistrationBean보다 먼저 실행되는 문제를 해결
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> {
                     // 인증 없이 접근 가능한 공개 경로
                     auth.requestMatchers("/api/employees/welcome", "/userinfos/new", "/userinfos/login").permitAll()

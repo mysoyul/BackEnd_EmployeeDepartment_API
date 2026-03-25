@@ -287,6 +287,7 @@ try {
 | 의존성 주입 | `@Autowired` 필드 주입 | `@RequiredArgsConstructor` 생성자 주입 |
 | 미인증 접근 응답 | Spring 기본 HTML 에러 페이지 | **401 JSON** |
 | 권한 부족 응답 | Spring 기본 HTML 에러 페이지 | **403 JSON** |
+| CORS 처리 | 미설정 → preflight 차단 | `.cors(Customizer.withDefaults())` 추가 |
 
 **개선 후 — exceptionHandling 추가:**
 ```java
@@ -318,9 +319,138 @@ try {
 
 ---
 
-## 8. DefaultExceptionAdvice 401 / 403 처리
+## 8. CORS 설정
 
-### 8-1. 왜 DefaultExceptionAdvice에 추가하는가
+### 8-1. CORS란
+
+브라우저는 **다른 출처(Origin)** 의 서버로 요청을 보낼 때 보안 정책(Same-Origin Policy)에 의해 차단합니다.
+클라이언트(`http://localhost:3000`)가 백엔드(`http://localhost:8080`)로 요청하는 구조가
+서로 다른 출처이므로 CORS 설정이 필요합니다.
+
+```
+클라이언트 Origin: http://localhost:3000
+백엔드 Origin   : http://localhost:8080  ← 포트가 다르므로 다른 출처(Cross-Origin)
+```
+
+### 8-2. Preflight 요청
+
+브라우저는 `Authorization` 헤더가 포함된 요청 전에 **OPTIONS 메서드로 preflight** 요청을 먼저 보냅니다.
+서버가 이 요청에 `Access-Control-Allow-Origin` 헤더를 응답에 포함하지 않으면 실제 요청이 차단됩니다.
+
+```
+① OPTIONS /api/departments/page  ← preflight (브라우저 자동 발송)
+   Access-Control-Request-Method: GET
+   Access-Control-Request-Headers: Authorization
+
+② 서버 응답에 Access-Control-Allow-Origin 없음 → CORS 오류 발생
+
+③ 실제 GET 요청은 전송되지 않음
+```
+
+### 8-3. 기존 구조의 문제
+
+```
+브라우저 preflight OPTIONS 요청
+    │
+    ▼
+Spring Security FilterChain (order: -100)  ← 먼저 실행
+    └─ CORS 미설정 → 인증 없는 OPTIONS 요청 차단 → CORS 오류
+    │
+    ▼ (도달 안 함)
+CorsFilter in FilterRegistrationBean (order: 0)
+```
+
+`FilterRegistrationBean`의 order(0)은 Spring Security(-100)보다 늦게 실행되므로
+preflight 요청이 Security 필터에서 차단됩니다.
+
+### 8-4. 해결 — SecurityConfig에 CORS 활성화
+
+```java
+// SecurityConfig.securityFilterChain()
+return http
+    .cors(Customizer.withDefaults())  // ← 추가: Security 필터 체인 내에서 CORS 처리
+    .csrf(csrf -> csrf.disable())
+    ...
+```
+
+`Customizer.withDefaults()`는 `CorsConfigurationSource` 빈(prod 프로파일) 또는
+MVC CORS 설정(local 프로파일)을 자동으로 참조합니다.
+
+### 8-5. 프로파일별 CORS 설정 클래스
+
+| 프로파일 | 클래스 | 방식 |
+|---|---|---|
+| `prod` | `CorsConfig` | `CorsConfigurationSource` 빈 등록 |
+| `local` | `WebConfig` | `WebMvcConfigurer.addCorsMappings()` |
+
+**CorsConfig (prod) — 변경 전/후**
+
+```java
+// 변경 전: FilterRegistrationBean → Spring Security보다 늦게 실행되어 preflight 차단
+@Bean
+public FilterRegistrationBean<?> corsConfigurationSource() { ... }
+
+// 변경 후: CorsConfigurationSource 빈 → SecurityConfig가 직접 참조
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOriginPatterns(List.of("*"));
+    configuration.setAllowCredentials(true);
+    configuration.setAllowedHeaders(Arrays.asList(
+            "Origin", "Content-Type", "Accept",
+            "Authorization",                  // ← JWT 토큰 전송에 필수
+            "Access-Control-Allow-Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+    ));
+    configuration.setAllowedMethods(Arrays.asList(
+            "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"  // ← OPTIONS 필수
+    ));
+    configuration.setMaxAge(3600L);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
+```
+
+**WebConfig (local) — Authorization 헤더 추가**
+
+```java
+// 변경 전
+.allowedHeaders("Origin", "Content-Type", "Accept")
+.allowedMethods("GET", "POST", "PUT", "DELETE")
+
+// 변경 후
+.allowedHeaders("Origin", "Content-Type", "Accept", "Authorization")  // ← 추가
+.allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")   // ← OPTIONS 추가
+```
+
+### 8-6. 수정 후 preflight 처리 흐름
+
+```
+브라우저 preflight OPTIONS 요청
+    │
+    ▼
+Spring Security FilterChain (order: -100)
+    └─ .cors(Customizer.withDefaults())
+        └─ CorsConfigurationSource 빈 참조
+        └─ Access-Control-Allow-Origin: * 응답 헤더 추가
+        └─ 200 OK 반환
+    │
+    ▼
+브라우저: preflight 통과 → 실제 API 요청 전송
+    │
+    ▼
+GET /api/departments/page
+Authorization: Bearer <JWT 토큰>
+    → 정상 처리
+```
+
+---
+
+## 9. DefaultExceptionAdvice 401 / 403 처리
+
+### 9-1. 왜 DefaultExceptionAdvice에 추가하는가
 
 Spring Security의 `SecurityConfig.exceptionHandling()`은 **필터 레벨** 예외만 처리합니다.
 `@PreAuthorize`는 컨트롤러 메서드 호출 시 **AOP**로 동작하므로, 예외가 필터를 거치지 않고
@@ -333,7 +463,7 @@ Spring Security의 `SecurityConfig.exceptionHandling()`은 **필터 레벨** 예
     → SecurityConfig.exceptionHandling() 에는 도달하지 않음
 ```
 
-### 8-2. 예외 클래스 계층
+### 9-2. 예외 클래스 계층
 
 ```
 Throwable
@@ -351,7 +481,7 @@ Throwable
 > `AccessDeniedException`과 `AuthenticationException` 전용 핸들러가 없으면
 > `RuntimeException` 핸들러가 대신 처리하여 500이 반환됩니다.
 
-### 8-3. 추가된 핸들러
+### 9-3. 추가된 핸들러
 
 ```java
 // 401 — 인증 실패
@@ -375,7 +505,7 @@ protected ResponseEntity<ErrorObject> handleAccessDeniedException(AccessDeniedEx
 }
 ```
 
-### 8-4. DefaultExceptionAdvice 전체 핸들러 처리 우선순위
+### 9-4. DefaultExceptionAdvice 전체 핸들러 처리 우선순위
 
 | 우선순위 | 예외 타입 | HTTP 상태 | 발생 상황 |
 |---|---|---|---|
@@ -386,7 +516,7 @@ protected ResponseEntity<ErrorObject> handleAccessDeniedException(AccessDeniedEx
 | 5 | `AccessDeniedException` | **403** | 권한 부족 (`@PreAuthorize` 실패) |
 | 6 | `RuntimeException` | 500 | 그 외 모든 런타임 예외 |
 
-### 8-5. 401 / 403 처리 경로 전체 정리
+### 9-5. 401 / 403 처리 경로 전체 정리
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -401,7 +531,7 @@ protected ResponseEntity<ErrorObject> handleAccessDeniedException(AccessDeniedEx
 
 ---
 
-## 9. 주의사항
+## 10. 주의사항
 
 | 항목 | 내용 |
 |---|---|

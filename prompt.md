@@ -62,6 +62,14 @@ DefaultExceptionAdvice 클래스에 401 인증실패에 대한 내용도 추가�
 
 백엔드의 인증과 권한, JWT 토큰생성과 토큰검증에 대한 내용을 ReactJS와 Zustand를 사용한 클라이언트 프로그램을 작성하려고 합니다. 클라이언트가 참조할 md문서를 작성해 주세요
 
-SecurityConfig, JwtAuthenticationFilter, JwtService 클래스에 주석을 추가해 주세요.   
+SecurityConfig, JwtAuthenticationFilter, JwtService 클래스에 주석을 추가해 주세요.
+
+
+클라이언트에서 아래와 같은 오류 발생함
+http://localhost:8080/api/departments/page?pageNo=0&pageSize=5&sortBy=id&sortDir=asc' from origin 
+'http://localhost:3000' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: 
+No 'Access-Control-Allow-Origin' header is present on the requested resource.
+
+jwt.md 문서에 내용을 반영해 주세요.   
 
 ```
