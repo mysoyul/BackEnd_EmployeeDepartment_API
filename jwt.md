@@ -170,7 +170,7 @@ public class JwtService {
 [클라이언트] JWT 토큰 수신 및 저장 (localStorage / sessionStorage)
 ```
 
-### 5-2. 토큰 활용 흐름 (다음 단계)
+### 5-2. 토큰 활용 흐름
 
 ```
 [클라이언트]
@@ -178,19 +178,25 @@ public class JwtService {
   Authorization: Bearer <JWT 토큰>
       │
       ▼
-[JwtAuthFilter] ← 아직 미구현 (추후 추가 필요)
+[JwtAuthenticationFilter]
       ├─ Authorization 헤더에서 토큰 추출
-      ├─ JwtService.validateToken(token) 검증
-      ├─ JwtService.extractUsername(token) → 사용자 이메일 추출
-      └─ SecurityContextHolder에 인증 정보 설정
+      ├─ jwtService.extractUsername(token) → 이메일 추출
+      │       └─ 실패(만료/위변조) → 401 JSON 즉시 반환, 필터 체인 중단
+      ├─ userDetailsService.loadUserByUsername(email) → DB에서 UserDetails 로드
+      ├─ jwtService.validateToken(token, userDetails) → 토큰 유효성 검증
+      └─ SecurityContextHolder에 인증 정보(authorities 포함) 설정
+      │
+      ▼
+[SecurityConfig.exceptionHandling]
+      ├─ 토큰 없이 인증 필요 경로 접근 → 401 JSON
+      └─ 인증됐으나 권한 부족 → 403 JSON
+      │
+      ▼
+[@PreAuthorize] 메서드 레벨 권한 검사
       │
       ▼
 [EmployeeController] 정상 응답
 ```
-
-> **현재 상태**: 토큰 발급(`/userinfos/login`)은 완성되었으나, API 요청 시 토큰을 검증하는
-> `JwtAuthFilter`가 아직 구현되지 않았습니다. `/api/**` 엔드포인트에 JWT 인증을 적용하려면
-> `OncePerRequestFilter`를 상속한 필터를 작성하고 `SecurityConfig`의 필터 체인에 등록해야 합니다.
 
 ---
 
@@ -245,7 +251,157 @@ eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbi5...
 
 ---
 
-## 7. 주의사항
+## 7. Filter & SecurityConfig 개선 내용
+
+### 7-1. JwtAuthenticationFilter 개선
+
+| 항목 | 개선 전 | 개선 후 |
+|---|---|---|
+| 의존성 주입 | `@Autowired` 필드 주입 | `@RequiredArgsConstructor` 생성자 주입 |
+| 토큰 파싱 예외 처리 | 예외 전파 → 500 Internal Server Error | try-catch → **401 JSON** 즉시 반환 |
+| 권한 로그 레벨 | `log.info` (모든 요청마다 INFO 출력) | `log.debug` (필요 시에만 확인) |
+
+**개선 전 — 예외 미처리:**
+```java
+// 만료/위변조 토큰 시 JwtException 발생 → 500 에러
+username = jwtService.extractUsername(token);
+```
+
+**개선 후 — 예외 처리 및 401 반환:**
+```java
+try {
+    username = jwtService.extractUsername(token);
+} catch (Exception e) {
+    log.warn("JWT token parsing failed: {}", e.getMessage());
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+    response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Invalid or expired JWT token\"}");
+    return;  // 필터 체인 중단
+}
+```
+
+### 7-2. SecurityConfig 개선
+
+| 항목 | 개선 전 | 개선 후 |
+|---|---|---|
+| 의존성 주입 | `@Autowired` 필드 주입 | `@RequiredArgsConstructor` 생성자 주입 |
+| 미인증 접근 응답 | Spring 기본 HTML 에러 페이지 | **401 JSON** |
+| 권한 부족 응답 | Spring 기본 HTML 에러 페이지 | **403 JSON** |
+
+**개선 후 — exceptionHandling 추가:**
+```java
+.exceptionHandling(ex -> ex
+    // 토큰 없이 인증 필요 경로 접근 → 401
+    .authenticationEntryPoint((request, response, e) -> {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write(
+                "{\"error\":\"Unauthorized\",\"message\":\"" + e.getMessage() + "\"}");
+    })
+    // 인증은 됐으나 권한 부족 → 403
+    .accessDeniedHandler((request, response, e) -> {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write(
+                "{\"error\":\"Forbidden\",\"message\":\"" + e.getMessage() + "\"}");
+    })
+)
+```
+
+### 7-3. 에러 응답 시나리오 정리
+
+| 상황 | 처리 위치 | HTTP 상태 | 응답 예시 |
+|---|---|---|---|
+| 토큰 만료/위변조 | JwtAuthenticationFilter (try-catch) | 401 | `{"error":"Unauthorized","message":"Invalid or expired JWT token"}` |
+| 토큰 없이 인증 필요 경로 접근 | SecurityConfig authenticationEntryPoint | 401 | `{"error":"Unauthorized","message":"Full authentication is required"}` |
+| ROLE 권한 부족 | SecurityConfig accessDeniedHandler | 403 | `{"error":"Forbidden","message":"Access Denied"}` |
+
+---
+
+## 8. DefaultExceptionAdvice 401 / 403 처리
+
+### 8-1. 왜 DefaultExceptionAdvice에 추가하는가
+
+Spring Security의 `SecurityConfig.exceptionHandling()`은 **필터 레벨** 예외만 처리합니다.
+`@PreAuthorize`는 컨트롤러 메서드 호출 시 **AOP**로 동작하므로, 예외가 필터를 거치지 않고
+`@RestControllerAdvice`로 전달됩니다.
+
+```
+@PreAuthorize 실패
+    → AccessDeniedException / AuthenticationException 발생 (AOP)
+    → @RestControllerAdvice (DefaultExceptionAdvice) 가 처리
+    → SecurityConfig.exceptionHandling() 에는 도달하지 않음
+```
+
+### 8-2. 예외 클래스 계층
+
+```
+Throwable
+└── Exception
+    └── RuntimeException
+        ├── org.springframework.security.access.AccessDeniedException   → 403
+        └── org.springframework.security.core.AuthenticationException   → 401
+            ├── BadCredentialsException          (비밀번호 불일치)
+            ├── UsernameNotFoundException        (사용자 없음)
+            ├── InsufficientAuthenticationException (미인증 접근)
+            └── AuthenticationCredentialsNotFoundException (토큰 검증 실패)
+```
+
+> `@ExceptionHandler`는 **가장 구체적인 타입을 우선 매칭**합니다.
+> `AccessDeniedException`과 `AuthenticationException` 전용 핸들러가 없으면
+> `RuntimeException` 핸들러가 대신 처리하여 500이 반환됩니다.
+
+### 8-3. 추가된 핸들러
+
+```java
+// 401 — 인증 실패
+@ExceptionHandler(AuthenticationException.class)
+protected ResponseEntity<ErrorObject> handleAuthenticationException(AuthenticationException e) {
+    ErrorObject errorObject = new ErrorObject();
+    errorObject.setStatusCode(HttpStatus.UNAUTHORIZED.value());
+    errorObject.setMessage(e.getMessage());
+    log.warn("Authentication failed: {}", e.getMessage());
+    return new ResponseEntity<>(errorObject, HttpStatus.UNAUTHORIZED);
+}
+
+// 403 — 권한 부족
+@ExceptionHandler(AccessDeniedException.class)
+protected ResponseEntity<ErrorObject> handleAccessDeniedException(AccessDeniedException e) {
+    ErrorObject errorObject = new ErrorObject();
+    errorObject.setStatusCode(HttpStatus.FORBIDDEN.value());
+    errorObject.setMessage(e.getMessage());
+    log.warn("Access denied: {}", e.getMessage());
+    return new ResponseEntity<>(errorObject, HttpStatus.FORBIDDEN);
+}
+```
+
+### 8-4. DefaultExceptionAdvice 전체 핸들러 처리 우선순위
+
+| 우선순위 | 예외 타입 | HTTP 상태 | 발생 상황 |
+|---|---|---|---|
+| 1 | `ResourceNotFoundException` | 417 / 404 | 리소스 없음 |
+| 2 | `HttpMessageNotReadableException` | 400 | 잘못된 요청 바디 |
+| 3 | `MethodArgumentNotValidException` | 400 | 입력값 검증 실패 |
+| 4 | `AuthenticationException` | **401** | 인증 실패 (자격증명 오류, 미인증) |
+| 5 | `AccessDeniedException` | **403** | 권한 부족 (`@PreAuthorize` 실패) |
+| 6 | `RuntimeException` | 500 | 그 외 모든 런타임 예외 |
+
+### 8-5. 401 / 403 처리 경로 전체 정리
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 상황                        처리 위치                  상태
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 만료/위변조 토큰             JwtAuthenticationFilter    401
+ 토큰 없이 보호 경로 접근     SecurityConfig entryPoint  401
+ 로그인 자격증명 오류         DefaultExceptionAdvice     401
+ @PreAuthorize 권한 부족      DefaultExceptionAdvice     403
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## 9. 주의사항
 
 | 항목 | 내용 |
 |---|---|

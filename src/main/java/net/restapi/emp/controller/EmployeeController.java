@@ -2,8 +2,11 @@ package net.restapi.emp.controller;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.restapi.emp.dto.EmployeeDto;
 import net.restapi.emp.dto.PageResponse;
+import net.restapi.emp.security.userinfo.CurrentUser;
+import net.restapi.emp.security.userinfo.UserInfo;
 import net.restapi.emp.service.EmployeeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @CrossOrigin("*")
 @AllArgsConstructor
 @RestController
@@ -46,7 +50,8 @@ public class EmployeeController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<List<EmployeeDto>> getAllEmployees(){
+    public ResponseEntity<List<EmployeeDto>> getAllEmployees(@CurrentUser UserInfo currentUser){
+        log.info("getAllEmployees requested by: {} [{}]", currentUser.getName(), currentUser.getEmail());
         List<EmployeeDto> employees = employeeService.getAllEmployees();
         return ResponseEntity.ok(employees);
     }

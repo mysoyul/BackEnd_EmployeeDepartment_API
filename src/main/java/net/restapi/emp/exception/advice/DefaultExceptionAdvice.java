@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -55,6 +57,32 @@ public class DefaultExceptionAdvice {
         result.put("httpStatus", HttpStatus.BAD_REQUEST.value());
 
         return new ResponseEntity<>(result, HttpStatus.BAD_REQUEST);
+    }
+
+    // 인증 실패 (토큰 없음, 잘못된 자격증명) → 401
+    // BadCredentialsException, InsufficientAuthenticationException 등 AuthenticationException 하위 클래스 모두 처리
+    @ExceptionHandler(AuthenticationException.class)
+    protected ResponseEntity<ErrorObject> handleAuthenticationException(AuthenticationException e) {
+        ErrorObject errorObject = new ErrorObject();
+        errorObject.setStatusCode(HttpStatus.UNAUTHORIZED.value());
+        errorObject.setMessage(e.getMessage());
+
+        log.warn("Authentication failed: {}", e.getMessage());
+
+        return new ResponseEntity<>(errorObject, HttpStatus.UNAUTHORIZED);
+    }
+
+    // @PreAuthorize 권한 부족 시 AccessDeniedException → 403
+    // RuntimeException 핸들러보다 먼저 매칭되도록 별도 선언
+    @ExceptionHandler(AccessDeniedException.class)
+    protected ResponseEntity<ErrorObject> handleAccessDeniedException(AccessDeniedException e) {
+        ErrorObject errorObject = new ErrorObject();
+        errorObject.setStatusCode(HttpStatus.FORBIDDEN.value());
+        errorObject.setMessage(e.getMessage());
+
+        log.warn("Access denied: {}", e.getMessage());
+
+        return new ResponseEntity<>(errorObject, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(RuntimeException.class)
