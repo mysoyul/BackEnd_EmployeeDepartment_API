@@ -5,3 +5,4 @@
 * 서버에 추가된 페이징 기능을 React 클라이언트에 요청하여 구현하고 싶어요. 추가된 서버의 페이징 기능을 잘 설명하기 위한 내용을 paging.md에 갱신해 주세요. 
 * @net.restapi.emp.security.userinfo.UserInfo 클래스에 대한 V4_create_userinfo.sql과 V5_insert_userinfo.sql 를 작성해 주세요.
 * jwt 토큰 생성을 위한 코드를 작성하였어요. 개선한 점을 수정해 주세요. 코드를 개선한 결과와 jwt 토큰생성에 대한 내용을 md 문서로 작성해 주세요.
+* @image/Admin토큰생성.png, @image/Admin토큰_employees_403.png 를 보면 api/employees 를 Admin 토큰으로 요청하면 왜 403 오류가 발생하나요?
