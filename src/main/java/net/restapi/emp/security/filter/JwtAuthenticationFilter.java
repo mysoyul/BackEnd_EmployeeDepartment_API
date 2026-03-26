@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * JWT 토큰 인증 필터
@@ -29,12 +28,11 @@ import java.util.List;
  * (서블릿 포워딩/리다이렉트 시 중복 실행 방지)
  *
  * 처리 흐름:
- *   1. shouldNotFilter() — 공개 경로이면 필터 건너뜀
- *   2. Authorization 헤더에서 "Bearer <token>" 추출
- *   3. 토큰 파싱 실패 시 → 401 JSON 반환 후 중단
- *   4. 토큰에서 username(이메일) 추출 → DB에서 UserDetails 로드
- *   5. 토큰 유효성 검증 통과 시 → SecurityContext에 인증 등록
- *   6. 다음 필터로 체인 계속
+ *   1. Authorization 헤더에서 "Bearer <token>" 추출
+ *   2. 토큰 파싱 실패 시 → 401 JSON 반환 후 중단
+ *   3. 토큰에서 username(이메일) 추출 → DB에서 UserDetails 로드
+ *   4. 토큰 유효성 검증 통과 시 → SecurityContext에 인증 등록
+ *   5. 다음 필터로 체인 계속
  */
 @Component
 @Slf4j
@@ -43,21 +41,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserInfoUserDetailsService userDetailsService;
-
-    // JWT 검증을 건너뛸 공개 경로 — SecurityConfig의 permitAll()과 동일하게 유지
-    // 공개 경로에 Authorization 헤더가 포함되어 있어도 토큰 검증을 수행하지 않음
-    private static final List<String> EXCLUDED_PATHS =
-            List.of("/userinfos/login", "/userinfos/new", "/api/employees/welcome");
-
-    /**
-     * 필터 실행 여부 결정
-     * 공개 경로(EXCLUDED_PATHS)는 토큰 없이 접근 가능하므로 필터를 건너뜀
-     */
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
-        return EXCLUDED_PATHS.contains(path);
-    }
 
     /**
      * 요청당 한 번 실행되는 JWT 인증 처리 메서드
