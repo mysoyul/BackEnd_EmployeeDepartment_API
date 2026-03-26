@@ -72,4 +72,8 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
 jwt.md 문서에 내용을 반영해 주세요.   
 
+@JWT인증_가이드.md 문서의 내용을 업데이트 해주세요. 
+net.restapi.emp.security 팩키지 아래의 구현 클래스에 대한 설명을 최대한 쉽게 정리해 주세요.
+특히 JwtService 와 SecurityConfig에 대한 설명을 이해하기 쉽도록 설명해 주세요.
+
 ```
