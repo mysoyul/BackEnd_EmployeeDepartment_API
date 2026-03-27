@@ -76,4 +76,22 @@ jwt.md 문서에 내용을 반영해 주세요.
 net.restapi.emp.security 팩키지 아래의 구현 클래스에 대한 설명을 최대한 쉽게 정리해 주세요.
 특히 JwtService 와 SecurityConfig에 대한 설명을 이해하기 쉽도록 설명해 주세요.
 
+@JwtAuthenticationFilter 에서 catch 절에서 에러 메시지를 출력하지 않고 Exception을 throw 하려면 어떻게 해야 하나요?
+        // Authorization 헤더가 존재하고 "Bearer "로 시작하는 경우에만 토큰 처리
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            // "Bearer " 이후 7자리부터 토큰 문자열 추출
+            token = authHeader.substring(7);
+            try {
+                // 토큰의 sub(subject) 클레임에서 username(이메일) 추출
+                username = jwtService.extractUsername(token);
+            } catch (Exception e) {
+                // 토큰 만료, 서명 불일치, 형식 오류 등 파싱 실패 → 401 반환 후 필터 체인 중단
+                log.warn("JWT token parsing failed: {}", e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Invalid or expired JWT token\"}");
+                return;
+            }
+        }
 ```
+* 이 내용을 JWT인증_가이드.md 문서에 반영해 주세요
